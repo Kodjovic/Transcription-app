@@ -1,7 +1,7 @@
 'use strict';
 
 // ─── Config ────────────────────────────────────────────────
-const API_BASE = 'http://localhost:8000';
+const API_BASE = 'http://jcf67yxxdq6o20nngwbx17sz.75.119.158.74.sslip.io';
 const ALLOWED_EXTENSIONS = new Set([
   'mp3', 'wav', 'm4a', 'ogg', 'flac', 'aac',
   'mp4', 'mkv', 'avi', 'mov', 'webm',
