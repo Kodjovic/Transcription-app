@@ -7,15 +7,14 @@ const ALLOWED_EXTENSIONS = new Set([
   'mp4', 'mkv', 'avi', 'mov', 'webm',
 ]);
 
-// Timeout : 3 min pour Cohere, 15 min pour la diarisation (modèles locaux = lents)
-const TIMEOUT_SIMPLE    = 10 * 60 * 1000;   // 10 min (Cohere)
+const TIMEOUT_SIMPLE    = 20 * 60 * 1000;   // 20 min (Cohere)
 const TIMEOUT_DIARIZE   = 45 * 60 * 1000;   // 45 min (Whisper + PyAnnote local)
 
 // ─── État global ───────────────────────────────────────────
 const state = {
   file:        null,
   youtubeUrl:  '',
-  inputMode:   'file',   // 'file' ou 'url'
+  inputMode:   'file',
   result:      null,
   uploading:   false,
   diarize:     false,
@@ -36,7 +35,6 @@ let inputTabs, panelFile, panelUrl, urlInput, urlPasteBtn, urlMeta;
 
 document.addEventListener('DOMContentLoaded', () => {
 
-  // Récupération des éléments du DOM
   dropZone            = document.getElementById('drop-zone');
   fileInput           = document.getElementById('file-input');
   browseBtn           = document.getElementById('browse-btn');
@@ -219,7 +217,6 @@ async function handleTranscribe() {
 
   const timeoutMs = state.diarize ? TIMEOUT_DIARIZE : TIMEOUT_SIMPLE;
 
-  // Messages de progression adaptés au mode
   const steps = state.diarize
     ? [
         [15,  'Envoi du fichier...'],
@@ -239,23 +236,6 @@ async function handleTranscribe() {
     setProgress(10, 'Envoi du fichier au serveur...');
     if (state.diarize) showProgressDetail('⚠️ Mode diarisation : le traitement local peut prendre plusieurs minutes selon la durée du fichier.');
 
-    const xhr = new XMLHttpRequest();
-    const uploadPromise = new Promise((resolve, reject) => {
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-          setProgress(Math.round((e.loaded / e.total) * 15), 'Envoi du fichier...');
-        }
-      });
-      xhr.addEventListener('load',    () => resolve(xhr));
-      xhr.addEventListener('error',   () => reject(new Error('Erreur réseau — vérifiez que le serveur est démarré sur http://localhost:8000')));
-      xhr.addEventListener('abort',   () => reject(new Error('Requête annulée')));
-      xhr.addEventListener('timeout', () => reject(new Error('Délai dépassé — le fichier est trop long ou le serveur ne répond pas.')));
-    });
-
-    xhr.open('POST', endpoint);
-    xhr.timeout = timeoutMs;
-    xhr.send(formData);
-
     // Progression simulée pendant l'attente
     let stepIdx = 0;
     const progressTimer = setInterval(() => {
@@ -263,38 +243,44 @@ async function handleTranscribe() {
         const [pct, label] = steps[stepIdx++];
         setProgress(pct, label);
       }
-    }, state.diarize ? 12000 : 4000);  // toutes les 12s en mode diarisation
+    }, state.diarize ? 12000 : 4000);
 
-    const xhrResult = await uploadPromise;
+    const controller = new AbortController();
+    const timeoutId  = setTimeout(() => controller.abort(), timeoutMs);
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      body:   formData,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
     clearInterval(progressTimer);
     hideProgressDetail();
     setProgress(92, 'Finalisation...');
 
-    if (xhrResult.status < 200 || xhrResult.status >= 300) {
-      let errMsg = `Erreur serveur (${xhrResult.status})`;
+    if (!response.ok) {
+      let errMsg = `Erreur serveur (${response.status})`;
       try {
-        const parsed = JSON.parse(xhrResult.responseText);
+        const parsed = await response.json();
         errMsg = parsed.detail || parsed.error || errMsg;
       } catch (_) {}
       throw new Error(errMsg);
     }
 
-    let data;
-    try {
-      data = JSON.parse(xhrResult.responseText);
-    } catch (parseErr) {
-      console.error('JSON parse error:', parseErr);
-      throw new Error('Réponse invalide du serveur (erreur JSON)');
-    }
+    const data = await response.json();
 
     state.result = data;
     setProgress(100, 'Terminé !');
     setTimeout(() => displayResults(data), 400);
 
   } catch (err) {
-    console.error('handleTranscribe error:', err);
+    if (err.name === 'AbortError') {
+      showError('Délai dépassé — le fichier est trop long ou le serveur ne répond pas.');
+    } else {
+      showError(err.message || 'Une erreur est survenue. Veuillez réessayer.');
+    }
     hideProgressDetail();
-    showError(err.message || 'Une erreur est survenue. Veuillez réessayer.');
     showSection('upload');
     state.uploading = false;
   }
@@ -309,22 +295,18 @@ function displayResults(data) {
     ar: 'العربية',  ru: 'Русский',   ko: '한국어',    nl: 'Nederlands', pl: 'Polski',
   };
 
-  // Texte principal (textarea)
   transcriptOutput.value = data.text || '';
 
-  // Chips de métadonnées
   const lang = data.language_detected || 'unknown';
   metaLanguage.textContent = `🌐 ${langNames[lang] || lang.toUpperCase()}`;
   metaDuration.textContent = `⏱ ${formatDuration(data.duration_seconds || 0)}`;
 
-  // Interlocuteurs détectés
   const speakers = data.speakers || [];
   if (speakers.length > 0) {
     metaSpeakers.textContent = `🎙️ ${speakers.length} interlocuteur${speakers.length > 1 ? 's' : ''}`;
     metaSpeakers.classList.remove('hidden');
   }
 
-  // Onglets : afficher "Par interlocuteur" uniquement si diarisation
   if (data.diarized && data.segments && data.segments.some(s => s.speaker)) {
     viewTabs.classList.remove('hidden');
     renderSpeakersView(data.segments);
@@ -332,7 +314,6 @@ function displayResults(data) {
     viewTabs.classList.add('hidden');
   }
 
-  // Toujours commencer sur l'onglet "Texte brut"
   viewTabs.querySelectorAll('.tab-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.tab === 'text');
   });
@@ -348,7 +329,6 @@ function displayResults(data) {
 function renderSpeakersView(segments) {
   speakersView.innerHTML = '';
 
-  // Construire une map de couleur par locuteur
   const speakerColorMap = {};
   let colorIdx = 0;
 
