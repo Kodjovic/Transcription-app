@@ -64,6 +64,19 @@ class TranscriptionService:
         # Cohere requires the 'language' field — "auto" is not a valid value
         lang_param = "fr" if language == "auto" else language
 
+        # with open(audio_path, "rb") as audio_file:
+        #     content = audio_file.read()
+
+        # Convertir en WAV si le format n'est pas supporté par Cohere
+        ext = os.path.splitext(audio_path)[1].lower()
+        supported = {'.mp3', '.wav', '.flac', '.ogg', '.mpeg', '.mpga'}
+        if ext not in supported:
+            import uuid, tempfile
+            from pydub import AudioSegment
+            wav_path = os.path.join(os.path.dirname(audio_path), f"{uuid.uuid4()}_converted.wav")
+            AudioSegment.from_file(audio_path).set_frame_rate(16000).set_channels(1).export(wav_path, format="wav")
+            audio_path = wav_path
+        
         with open(audio_path, "rb") as audio_file:
             content = audio_file.read()
 
