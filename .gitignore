@@ -1,0 +1,32 @@
+# Secrets / config
+.env
+.env.local
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs / temp
+*.log
+temp/
+uploads/
+outputs/
+
+# Modèles Whisper (lourds)
+*.pt
+*.bin
+models/
