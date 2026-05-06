@@ -1,7 +1,7 @@
 'use strict';
 
 // ─── Config ────────────────────────────────────────────────
-const API_BASE = 'https://apitranscription.mapharmadegarde.com/';
+const API_BASE = 'https://apitranscription.mapharmadegarde.com';
 const ALLOWED_EXTENSIONS = new Set([
   'mp3', 'wav', 'm4a', 'ogg', 'flac', 'aac',
   'mp4', 'mkv', 'avi', 'mov', 'webm',
