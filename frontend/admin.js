@@ -1,6 +1,6 @@
 'use strict';
 
-const API_BASE = '';
+const API_BASE = 'https://apitranscription.mapharmadegarde.com';
 
 let createForm, newName, newCredits, newCodeResult, newCodeValue, copyCodeBtn;
 let usersTbody, refreshBtn, logoutBtn, errorBanner, errorMessage, errorDismiss;
@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function fetchMe() {
   try {
-    const res = await fetch(`${API_BASE}/auth/me`);
+    const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
     if (!res.ok) return null;
     return await res.json();
   } catch (_) { return null; }
@@ -53,7 +53,7 @@ async function loadUsers() {
   usersTbody.innerHTML = '<tr><td colspan="6" class="loading">Chargement...</td></tr>';
 
   try {
-    const res = await fetch(`${API_BASE}/admin/users`);
+    const res = await fetch(`${API_BASE}/admin/users`, { credentials: 'include' });
     if (!res.ok) throw new Error(`Erreur ${res.status}`);
     const users = await res.json();
     renderUsers(users);
@@ -120,9 +120,10 @@ async function handleCreateUser(e) {
 
   try {
     const res = await fetch(`${API_BASE}/admin/users`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ name, credits }),
+      method:      'POST',
+      credentials: 'include',
+      headers:     { 'Content-Type': 'application/json' },
+      body:        JSON.stringify({ name, credits }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -156,9 +157,10 @@ async function promptAddCredits(user) {
 
   try {
     const res = await fetch(`${API_BASE}/admin/users/${user.id}/credits`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ credits: delta }),
+      method:      'POST',
+      credentials: 'include',
+      headers:     { 'Content-Type': 'application/json' },
+      body:        JSON.stringify({ credits: delta }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -179,7 +181,7 @@ async function promptDeleteUser(user) {
   if (!ok) return;
 
   try {
-    const res = await fetch(`${API_BASE}/admin/users/${user.id}`, { method: 'DELETE' });
+    const res = await fetch(`${API_BASE}/admin/users/${user.id}`, { method: 'DELETE', credentials: 'include' });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.detail || `Erreur ${res.status}`);
@@ -192,7 +194,7 @@ async function promptDeleteUser(user) {
 
 
 async function handleLogout() {
-  try { await fetch(`${API_BASE}/auth/logout`, { method: 'POST' }); } catch (_) {}
+  try { await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' }); } catch (_) {}
   window.location.href = 'index.html';
 }
 

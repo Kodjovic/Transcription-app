@@ -1,8 +1,8 @@
 'use strict';
 
 // ─── Config ────────────────────────────────────────────────
-// URLs relatives — fonctionne en dev local et en production
-const API_BASE = '';
+// API en production (vide = relatif à l'origine actuelle, utile en dev)
+const API_BASE = 'https://apitranscription.mapharmadegarde.com';
 // Phase de test : audio uniquement
 const ALLOWED_EXTENSIONS = new Set([
   'mp3', 'wav', 'm4a', 'ogg', 'flac', 'aac',
@@ -11,15 +11,14 @@ const VIDEO_EXTENSIONS = new Set([
   'mp4', 'mkv', 'avi', 'mov', 'webm',
 ]);
 
-// Timeout : 3 min pour Cohere, 15 min pour la diarisation (modèles locaux = lents)
-const TIMEOUT_SIMPLE    = 10 * 60 * 1000;   // 10 min (Cohere)
+const TIMEOUT_SIMPLE    = 20 * 60 * 1000;   // 20 min (Cohere)
 const TIMEOUT_DIARIZE   = 45 * 60 * 1000;   // 45 min (Whisper + PyAnnote local)
 
 // ─── État global ───────────────────────────────────────────
 const state = {
   file:        null,
   youtubeUrl:  '',
-  inputMode:   'file',   // 'file' ou 'url'
+  inputMode:   'file',
   result:      null,
   uploading:   false,
   diarize:     false,
@@ -44,7 +43,6 @@ let userWidget, creditsBadge, creditsCount, adminLink, logoutBtn;
 
 document.addEventListener('DOMContentLoaded', () => {
 
-  // Récupération des éléments du DOM
   dropZone            = document.getElementById('drop-zone');
   fileInput           = document.getElementById('file-input');
   browseBtn           = document.getElementById('browse-btn');
@@ -257,7 +255,6 @@ async function handleTranscribe() {
 
   const timeoutMs = state.diarize ? TIMEOUT_DIARIZE : TIMEOUT_SIMPLE;
 
-  // Messages de progression adaptés au mode
   const steps = state.diarize
     ? [
         [15,  'Envoi du fichier...'],
@@ -277,23 +274,6 @@ async function handleTranscribe() {
     setProgress(10, 'Envoi du fichier au serveur...');
     if (state.diarize) showProgressDetail('⚠️ Mode diarisation : le traitement local peut prendre plusieurs minutes selon la durée du fichier.');
 
-    const xhr = new XMLHttpRequest();
-    const uploadPromise = new Promise((resolve, reject) => {
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-          setProgress(Math.round((e.loaded / e.total) * 15), 'Envoi du fichier...');
-        }
-      });
-      xhr.addEventListener('load',    () => resolve(xhr));
-      xhr.addEventListener('error',   () => reject(new Error('Erreur réseau — vérifiez que le serveur est démarré sur http://localhost:8000')));
-      xhr.addEventListener('abort',   () => reject(new Error('Requête annulée')));
-      xhr.addEventListener('timeout', () => reject(new Error('Délai dépassé — le fichier est trop long ou le serveur ne répond pas.')));
-    });
-
-    xhr.open('POST', endpoint);
-    xhr.timeout = timeoutMs;
-    xhr.send(formData);
-
     // Progression simulée pendant l'attente
     let stepIdx = 0;
     let currentPct = 10;
@@ -312,41 +292,45 @@ async function handleTranscribe() {
       }
     }, state.diarize ? 12000 : 3000);
 
-    const xhrResult = await uploadPromise;
+    const controller = new AbortController();
+    const timeoutId  = setTimeout(() => controller.abort(), timeoutMs);
+
+    const response = await fetch(endpoint, {
+      method:      'POST',
+      body:        formData,
+      credentials: 'include',
+      signal:      controller.signal,
+    });
+
+    clearTimeout(timeoutId);
     clearInterval(progressTimer);
     hideProgressDetail();
     setProgress(92, 'Finalisation...');
 
-    if (xhrResult.status < 200 || xhrResult.status >= 300) {
-      let errMsg = `Erreur serveur (${xhrResult.status})`;
+    if (!response.ok) {
+      let errMsg = `Erreur serveur (${response.status})`;
       try {
-        const parsed = JSON.parse(xhrResult.responseText);
+        const parsed = await response.json();
         errMsg = parsed.detail || parsed.error || errMsg;
       } catch (_) {}
 
       // Session expirée
-      if (xhrResult.status === 401) {
+      if (response.status === 401) {
         state.user = null;
         showLogin();
         throw new Error('Session expirée. Veuillez vous reconnecter.');
       }
 
       // Crédits insuffisants
-      if (xhrResult.status === 402) {
-        await refreshUser();  // rafraîchir l'affichage des crédits
+      if (response.status === 402) {
+        await refreshUser();
         throw new Error(`${errMsg} ${contactLine()}`);
       }
 
       throw new Error(errMsg);
     }
 
-    let data;
-    try {
-      data = JSON.parse(xhrResult.responseText);
-    } catch (parseErr) {
-      console.error('JSON parse error:', parseErr);
-      throw new Error('Réponse invalide du serveur (erreur JSON)');
-    }
+    const data = await response.json();
 
     state.result = data;
 
@@ -359,9 +343,12 @@ async function handleTranscribe() {
     setTimeout(() => displayResults(data), 400);
 
   } catch (err) {
-    console.error('handleTranscribe error:', err);
+    if (err.name === 'AbortError') {
+      showError('Délai dépassé — le fichier est trop long ou le serveur ne répond pas.');
+    } else {
+      showError(err.message || 'Une erreur est survenue. Veuillez réessayer.');
+    }
     hideProgressDetail();
-    showError(err.message || 'Une erreur est survenue. Veuillez réessayer.');
     showSection('upload');
     state.uploading = false;
   }
@@ -376,22 +363,18 @@ function displayResults(data) {
     ar: 'العربية',  ru: 'Русский',   ko: '한국어',    nl: 'Nederlands', pl: 'Polski',
   };
 
-  // Texte principal (textarea)
   transcriptOutput.value = data.text || '';
 
-  // Chips de métadonnées
   const lang = data.language_detected || 'unknown';
   metaLanguage.textContent = `🌐 ${langNames[lang] || lang.toUpperCase()}`;
   metaDuration.textContent = `⏱ ${formatDuration(data.duration_seconds || 0)}`;
 
-  // Interlocuteurs détectés
   const speakers = data.speakers || [];
   if (speakers.length > 0) {
     metaSpeakers.textContent = `🎙️ ${speakers.length} interlocuteur${speakers.length > 1 ? 's' : ''}`;
     metaSpeakers.classList.remove('hidden');
   }
 
-  // Onglets : afficher "Par interlocuteur" uniquement si diarisation
   if (data.diarized && data.segments && data.segments.some(s => s.speaker)) {
     viewTabs.classList.remove('hidden');
     renderSpeakersView(data.segments);
@@ -399,7 +382,6 @@ function displayResults(data) {
     viewTabs.classList.add('hidden');
   }
 
-  // Toujours commencer sur l'onglet "Texte brut"
   viewTabs.querySelectorAll('.tab-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.tab === 'text');
   });
@@ -415,7 +397,6 @@ function displayResults(data) {
 function renderSpeakersView(segments) {
   speakersView.innerHTML = '';
 
-  // Construire une map de couleur par locuteur
   const speakerColorMap = {};
   let colorIdx = 0;
 
@@ -466,6 +447,7 @@ function handleExport(format) {
 
     fetch(`${API_BASE}/export/docx`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text:             state.result.text,
@@ -531,7 +513,7 @@ async function loadPublicConfig() {
 
 async function checkAuth() {
   try {
-    const res = await fetch(`${API_BASE}/auth/me`);
+    const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
     if (res.status === 401) { showLogin(); return; }
     if (!res.ok) { showLogin(); return; }
     state.user = await res.json();
@@ -543,7 +525,7 @@ async function checkAuth() {
 
 async function refreshUser() {
   try {
-    const res = await fetch(`${API_BASE}/auth/me`);
+    const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
     if (res.ok) {
       state.user = await res.json();
       updateCreditsDisplay();
@@ -587,9 +569,10 @@ async function handleLogin(e) {
 
   try {
     const res = await fetch(`${API_BASE}/auth/login`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ code }),
+      method:      'POST',
+      credentials: 'include',
+      headers:     { 'Content-Type': 'application/json' },
+      body:        JSON.stringify({ code }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -611,7 +594,7 @@ async function handleLogin(e) {
 
 async function handleLogout() {
   try {
-    await fetch(`${API_BASE}/auth/logout`, { method: 'POST' });
+    await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' });
   } catch (_) { /* on continue quand même */ }
   state.user = null;
   resetApp();

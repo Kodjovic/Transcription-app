@@ -99,9 +99,21 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# CORS — origines autorisées, configurables via .env
+# (allow_origins=["*"] + allow_credentials=True est invalide en CORS spec)
+_origins_env = os.getenv("ALLOWED_ORIGINS", "")
+if _origins_env.strip():
+    _allowed_origins = [o.strip() for o in _origins_env.split(",") if o.strip()]
+else:
+    _allowed_origins = [
+        "https://apitranscription.mapharmadegarde.com",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
