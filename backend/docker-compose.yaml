@@ -1,8 +1,23 @@
 services:
   app:
-    build: .
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    container_name: transcription-app
     ports:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      # Chemin du dossier persistant à l'intérieur du conteneur
+      - DATA_DIR=/data
+    volumes:
+      # Données persistantes (auth.db) — survit aux redémarrages
+      - app-data:/data
+      # Dossier temporaire pour les uploads (peut être éphémère)
+      - app-temp:/app/temp
     restart: unless-stopped
+
+volumes:
+  app-data:
+  app-temp:

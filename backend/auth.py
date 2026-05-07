@@ -18,7 +18,12 @@ from typing import Optional
 
 from fastapi import Cookie, Depends, HTTPException
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "auth.db")
+# Dossier où stocker la base SQLite. Configurable via DATA_DIR (utile en
+# Docker pour pointer vers un volume monté). Par défaut : à côté de auth.py.
+_DATA_DIR = os.getenv("DATA_DIR", os.path.dirname(__file__))
+os.makedirs(_DATA_DIR, exist_ok=True)
+DB_PATH = os.path.join(_DATA_DIR, "auth.db")
+
 SESSION_COOKIE = "transcription_session"
 SESSION_DURATION = 7 * 24 * 3600  # 7 jours
 
