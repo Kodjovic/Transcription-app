@@ -6,6 +6,8 @@ import os
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Response, Cookie, Depends
 from pydantic import BaseModel, Field
+from fastapi import Request
+from fastapi.responses import Response
 
 # Cookie sécurisé en production (HTTPS).
 # Mettre COOKIE_SECURE=true dans .env quand déployé derrière HTTPS.
@@ -61,7 +63,17 @@ async def get_public_config():
         "cost_diarize":    COST_DIARIZE,
         "admin_contact":   ADMIN_CONTACT,
     }
-
+#--------------------------login--------------------
+@router.options("/auth/login")
+async def options_auth_login():
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
 
 # ─── Auth ─────────────────────────────────────────────────────────────────────
 
