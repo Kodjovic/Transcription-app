@@ -1,7 +1,9 @@
 import os
 import re
+import uuid
 import logging
 import httpx
+import ffmpeg
 from dataclasses import dataclass, field
 from typing import List
 from dotenv import load_dotenv
@@ -12,6 +14,9 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 COHERE_TRANSCRIBE_ENDPOINT = "https://api.cohere.com/v1/audio/transcriptions"
 COHERE_MODEL = "cohere-transcribe-03-2026"
+
+# Formats audio acceptés par Cohere
+COHERE_SUPPORTED_FORMATS = {'.mp3', '.wav', '.flac', '.ogg', '.mpeg', '.mpga'}
 
 
 @dataclass
@@ -60,9 +65,35 @@ class TranscriptionService:
         language: str = "auto",
         chunk_offset: float = 0.0,
     ) -> TranscriptionResult:
+        import time
+        t0 = time.time()
         duration = self._get_audio_duration(audio_path)
+        size_mb = os.path.getsize(audio_path) / (1024 * 1024)
+        logger.info(f"Audio : {duration:.0f}s ({size_mb:.1f} Mo), durée lue en {time.time()-t0:.1f}s")
         # Cohere requires the 'language' field — "auto" is not a valid value
         lang_param = "fr" if language == "auto" else language
+
+        # Conversion automatique vers WAV si le format n'est pas supporté par Cohere
+        # On utilise ffmpeg directement (10-50x plus rapide que pydub sur fichiers longs)
+        ext = os.path.splitext(audio_path)[1].lower()
+        if ext not in COHERE_SUPPORTED_FORMATS:
+            wav_path = os.path.join(
+                os.path.dirname(audio_path),
+                f"{uuid.uuid4()}_converted.wav",
+            )
+            logger.info(f"Conversion {ext} -> wav (16kHz mono) via ffmpeg : {os.path.basename(audio_path)}")
+            try:
+                (
+                    ffmpeg
+                    .input(audio_path)
+                    .output(wav_path, acodec="pcm_s16le", ac=1, ar=16000)
+                    .overwrite_output()
+                    .run(capture_stdout=True, capture_stderr=True, quiet=True)
+                )
+            except ffmpeg.Error as e:
+                stderr = e.stderr.decode("utf-8", errors="replace") if e.stderr else str(e)
+                raise RuntimeError(f"Conversion audio échouée : {stderr[:300]}")
+            audio_path = wav_path
 
         with open(audio_path, "rb") as audio_file:
             content = audio_file.read()
@@ -76,6 +107,8 @@ class TranscriptionService:
         filename = os.path.basename(audio_path)
         files.append(("file", (filename, content, "audio/wav")))
 
+        t_cohere = time.time()
+        logger.info(f"Cohere : envoi du fichier ({len(content)/(1024*1024):.1f} Mo)...")
         try:
             response = httpx.post(
                 COHERE_TRANSCRIBE_ENDPOINT,
@@ -87,6 +120,7 @@ class TranscriptionService:
             raise RuntimeError("timeout")
         except httpx.RequestError as e:
             raise RuntimeError(f"Network error: {e}")
+        logger.info(f"Cohere : réponse en {time.time()-t_cohere:.1f}s (status {response.status_code})")
 
         if response.status_code == 429:
             raise RuntimeError("rate_limit")

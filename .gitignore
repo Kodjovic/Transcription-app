@@ -30,3 +30,9 @@ outputs/
 *.pt
 *.bin
 models/
+
+# Base de données (auth + crédits)
+*.db
+*.sqlite
+*.sqlite3
+auth.db

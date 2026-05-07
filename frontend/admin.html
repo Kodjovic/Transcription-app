@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Administration — Transcription Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+
+  <header>
+    <div class="header-inner">
+      <div class="logo">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span>Administration</span>
+      </div>
+
+      <div class="user-widget">
+        <a href="index.html" class="user-btn">← Retour à l'app</a>
+        <button id="logout-btn" class="user-btn">Déconnexion</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+    <div id="error-banner" class="error-banner hidden">
+      <span id="error-message"></span>
+      <button id="error-dismiss" aria-label="Fermer">&times;</button>
+    </div>
+
+    <!-- Section création -->
+    <section class="admin-section">
+      <h2>Créer un utilisateur</h2>
+      <form id="create-form" class="admin-form">
+        <div>
+          <label for="new-name">Nom (optionnel)</label>
+          <input type="text" id="new-name" placeholder="Ex. Justine" />
+        </div>
+        <div>
+          <label for="new-credits">Crédits initiaux</label>
+          <input type="number" id="new-credits" min="0" value="30" />
+        </div>
+        <button type="submit">Générer un code</button>
+      </form>
+
+      <div id="new-code-result" class="new-code hidden">
+        <p class="new-code-label">Code généré :</p>
+        <div class="new-code-row">
+          <code id="new-code-value">—</code>
+          <button id="copy-code-btn" type="button">Copier</button>
+        </div>
+        <p class="new-code-note">⚠️ Ce code ne sera plus affiché. Notez-le et transmettez-le à l'utilisateur.</p>
+      </div>
+    </section>
+
+    <!-- Liste des utilisateurs -->
+    <section class="admin-section">
+      <div class="admin-section-header">
+        <h2>Utilisateurs</h2>
+        <button id="refresh-btn" class="user-btn">↻ Rafraîchir</button>
+      </div>
+
+      <div class="users-table-wrap">
+        <table id="users-table">
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Code</th>
+              <th>Crédits</th>
+              <th>Créé le</th>
+              <th>Dernière utilisation</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody">
+            <tr><td colspan="6" class="loading">Chargement...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="admin.js"></script>
+</body>
+</html>

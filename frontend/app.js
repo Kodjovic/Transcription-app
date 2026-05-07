@@ -1,9 +1,13 @@
 'use strict';
 
 // ─── Config ────────────────────────────────────────────────
-const API_BASE = 'http://localhost:8000';
+// URLs relatives — fonctionne en dev local et en production
+const API_BASE = '';
+// Phase de test : audio uniquement
 const ALLOWED_EXTENSIONS = new Set([
   'mp3', 'wav', 'm4a', 'ogg', 'flac', 'aac',
+]);
+const VIDEO_EXTENSIONS = new Set([
   'mp4', 'mkv', 'avi', 'mov', 'webm',
 ]);
 
@@ -19,6 +23,8 @@ const state = {
   result:      null,
   uploading:   false,
   diarize:     false,
+  user:        null,
+  config:      { default_credits: 30, cost_simple: 5, cost_diarize: 10, admin_contact: '' },
 };
 
 // ─── Références DOM ────────────────────────────────────────
@@ -33,6 +39,8 @@ let newTranscriptionBtn;
 let errorBanner, errorMessage, errorDismiss;
 let viewTabs, tabTextPanel, tabSpeakersPanel, speakersView;
 let inputTabs, panelFile, panelUrl, urlInput, urlPasteBtn, urlMeta;
+let loginOverlay, loginForm, loginCode, loginSubmit, loginError, loginContact;
+let userWidget, creditsBadge, creditsCount, adminLink, logoutBtn;
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -74,6 +82,25 @@ document.addEventListener('DOMContentLoaded', () => {
   urlInput            = document.getElementById('url-input');
   urlPasteBtn         = document.getElementById('url-paste-btn');
   urlMeta             = document.getElementById('url-meta');
+
+  // Auth / crédits
+  loginOverlay        = document.getElementById('login-overlay');
+  loginForm           = document.getElementById('login-form');
+  loginCode           = document.getElementById('login-code');
+  loginSubmit         = document.getElementById('login-submit');
+  loginError          = document.getElementById('login-error');
+  loginContact        = document.getElementById('login-contact');
+  userWidget          = document.getElementById('user-widget');
+  creditsBadge        = document.getElementById('credits-badge');
+  creditsCount        = document.getElementById('credits-count');
+  adminLink           = document.getElementById('admin-link');
+  logoutBtn           = document.getElementById('logout-btn');
+
+  // Auth — chargement initial
+  loadPublicConfig().then(checkAuth);
+
+  loginForm.addEventListener('submit', handleLogin);
+  logoutBtn.addEventListener('click', handleLogout);
 
   // ── Onglets Fichier / URL ────────────────────────────────
   document.querySelectorAll('.input-tab').forEach((btn) => {
@@ -182,6 +209,10 @@ function updateTranscribeBtn() {
 // ─── Sélection de fichier ──────────────────────────────────
 function handleFileSelect(file) {
   const ext = file.name.split('.').pop().toLowerCase();
+  if (VIDEO_EXTENSIONS.has(ext)) {
+    showError("Audio requis pour la phase de test. Si vous avez une vidéo, extrayez d'abord la piste audio.");
+    return;
+  }
   if (!ALLOWED_EXTENSIONS.has(ext)) {
     showError(`Format non supporté : .${ext}. Formats acceptés : ${[...ALLOWED_EXTENSIONS].join(', ')}`);
     return;
@@ -200,6 +231,13 @@ async function handleTranscribe() {
   if (state.uploading) return;
   if (state.inputMode === 'file' && !state.file) return;
   if (state.inputMode === 'url'  && !state.youtubeUrl) return;
+
+  // Vérification crédits côté client (UX)
+  const cost = state.diarize ? state.config.cost_diarize : state.config.cost_simple;
+  if (state.user && !state.user.is_admin && state.user.credits < cost) {
+    showError(creditsExhaustedMessage(cost));
+    return;
+  }
 
   state.uploading = true;
   hideError();
@@ -258,12 +296,21 @@ async function handleTranscribe() {
 
     // Progression simulée pendant l'attente
     let stepIdx = 0;
+    let currentPct = 10;
     const progressTimer = setInterval(() => {
       if (stepIdx < steps.length) {
         const [pct, label] = steps[stepIdx++];
+        currentPct = pct;
         setProgress(pct, label);
+      } else {
+        // Une fois les étapes finies, on continue à grimper lentement vers 90%
+        // pour montrer que ça travaille toujours (Cohere prend son temps)
+        if (currentPct < 90) {
+          currentPct += 0.5;
+          setProgress(currentPct, 'Transcription en cours... (peut prendre jusqu\'à 1 min selon la durée)');
+        }
       }
-    }, state.diarize ? 12000 : 4000);  // toutes les 12s en mode diarisation
+    }, state.diarize ? 12000 : 3000);
 
     const xhrResult = await uploadPromise;
     clearInterval(progressTimer);
@@ -276,6 +323,20 @@ async function handleTranscribe() {
         const parsed = JSON.parse(xhrResult.responseText);
         errMsg = parsed.detail || parsed.error || errMsg;
       } catch (_) {}
+
+      // Session expirée
+      if (xhrResult.status === 401) {
+        state.user = null;
+        showLogin();
+        throw new Error('Session expirée. Veuillez vous reconnecter.');
+      }
+
+      // Crédits insuffisants
+      if (xhrResult.status === 402) {
+        await refreshUser();  // rafraîchir l'affichage des crédits
+        throw new Error(`${errMsg} ${contactLine()}`);
+      }
+
       throw new Error(errMsg);
     }
 
@@ -288,6 +349,12 @@ async function handleTranscribe() {
     }
 
     state.result = data;
+
+    // Mettre à jour les crédits affichés après succès
+    if (data.credits_charged) {
+      await refreshUser();
+    }
+
     setProgress(100, 'Terminé !');
     setTimeout(() => displayResults(data), 400);
 
@@ -446,6 +513,131 @@ function handleCopy() {
       copyBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
     }, 2000);
   });
+}
+
+
+// ─── Auth ──────────────────────────────────────────────────
+async function loadPublicConfig() {
+  try {
+    const res = await fetch(`${API_BASE}/config`);
+    if (res.ok) state.config = await res.json();
+  } catch (_) { /* on garde les valeurs par défaut */ }
+
+  // Mise à jour du lien "Contactez l'administrateur" sur la page login
+  if (loginContact && state.config.admin_contact) {
+    loginContact.innerHTML = `Contactez l'administrateur : <a href="${asContactHref(state.config.admin_contact)}">${escapeHtml(state.config.admin_contact)}</a>`;
+  }
+}
+
+async function checkAuth() {
+  try {
+    const res = await fetch(`${API_BASE}/auth/me`);
+    if (res.status === 401) { showLogin(); return; }
+    if (!res.ok) { showLogin(); return; }
+    state.user = await res.json();
+    showApp();
+  } catch (_) {
+    showLogin();
+  }
+}
+
+async function refreshUser() {
+  try {
+    const res = await fetch(`${API_BASE}/auth/me`);
+    if (res.ok) {
+      state.user = await res.json();
+      updateCreditsDisplay();
+    }
+  } catch (_) { /* silencieux */ }
+}
+
+function showLogin() {
+  loginOverlay.classList.remove('hidden');
+  userWidget.classList.add('hidden');
+  loginCode.focus();
+}
+
+function showApp() {
+  loginOverlay.classList.add('hidden');
+  userWidget.classList.remove('hidden');
+  updateCreditsDisplay();
+  adminLink.classList.toggle('hidden', !state.user || !state.user.is_admin);
+}
+
+function updateCreditsDisplay() {
+  if (!state.user) return;
+  if (state.user.is_admin) {
+    creditsCount.textContent = '∞';
+    creditsBadge.classList.remove('low');
+  } else {
+    creditsCount.textContent = state.user.credits;
+    const lowThreshold = state.config.cost_diarize || 10;
+    creditsBadge.classList.toggle('low', state.user.credits < lowThreshold);
+  }
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const code = loginCode.value.trim().toUpperCase();
+  if (!code) return;
+
+  loginError.classList.add('hidden');
+  loginSubmit.disabled = true;
+  loginSubmit.textContent = 'Connexion...';
+
+  try {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ code }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      loginError.textContent = data.detail || 'Code invalide';
+      loginError.classList.remove('hidden');
+      return;
+    }
+    state.user = await res.json();
+    loginCode.value = '';
+    showApp();
+  } catch (err) {
+    loginError.textContent = err.message || 'Erreur de connexion';
+    loginError.classList.remove('hidden');
+  } finally {
+    loginSubmit.disabled = false;
+    loginSubmit.textContent = 'Se connecter';
+  }
+}
+
+async function handleLogout() {
+  try {
+    await fetch(`${API_BASE}/auth/logout`, { method: 'POST' });
+  } catch (_) { /* on continue quand même */ }
+  state.user = null;
+  resetApp();
+  showLogin();
+}
+
+function creditsExhaustedMessage(cost) {
+  return `Vous n'avez plus assez de crédits (${cost} requis). ${contactLine()}`;
+}
+
+function contactLine() {
+  const c = state.config.admin_contact;
+  if (!c) return "Contactez l'administrateur pour recharger votre compte.";
+  return `Contactez l'administrateur : ${c}`;
+}
+
+function asContactHref(c) {
+  if (c.includes('@')) return `mailto:${c}`;
+  if (c.startsWith('http')) return c;
+  return '#';
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
 }
 
 

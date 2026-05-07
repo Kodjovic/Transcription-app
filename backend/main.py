@@ -31,12 +31,27 @@ from diarization import DiarizationService
 from whisper_service import WhisperService
 from youtube_service import YouTubeService
 
+from auth import (
+    init_db,
+    ensure_admin_user,
+    cleanup_expired_sessions,
+    deduct_credits,
+    refund_credits,
+    require_user,
+    COST_SIMPLE,
+    COST_DIARIZE,
+)
+from auth_routes import router as auth_router
+
+from fastapi import Depends
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 TEMP_DIR = os.path.join(os.path.dirname(__file__), "temp")
 MAX_FILE_SIZE_MB = float(os.getenv("MAX_FILE_SIZE_MB", "25"))
-ALLOWED_EXTENSIONS = AUDIO_EXTENSIONS | VIDEO_EXTENSIONS
+# Phase de test : audio uniquement (vidéo désactivée pour réduire le temps de traitement)
+ALLOWED_EXTENSIONS = AUDIO_EXTENSIONS
 
 # Instanciation des services
 transcription_service = TranscriptionService()
@@ -67,6 +82,9 @@ async def cleanup_old_temp_files():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     os.makedirs(TEMP_DIR, exist_ok=True)
+    init_db()
+    ensure_admin_user()
+    cleanup_expired_sessions()
     task = asyncio.create_task(cleanup_old_temp_files())
     yield
     task.cancel()
@@ -88,6 +106,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Routes d'authentification + admin
+app.include_router(auth_router)
 
 # Servir le frontend comme fichiers statiques
 frontend_dir = os.path.join(os.path.dirname(__file__), "..", "frontend")
@@ -213,15 +234,25 @@ async def transcribe_file(
     file: UploadFile = File(...),
     language: str    = Form(default="auto"),
     diarize: str     = Form(default="false"),   # "true" = mode Whisper + PyAnnote
+    user: dict       = Depends(require_user),
 ):
     temp_files = []
     use_diarization = diarize.lower() == "true"
+    cost     = COST_DIARIZE if use_diarization else COST_SIMPLE
+    debited  = False
+    success  = False
 
     try:
         # ── Validation de l'extension ─────────────────────────────────────
         filename = file.filename or "upload"
         ext = os.path.splitext(filename)[1].lower()
         if ext not in ALLOWED_EXTENSIONS:
+            if ext in VIDEO_EXTENSIONS:
+                raise HTTPException(
+                    status_code=415,
+                    detail="Audio requis pour la phase de test. "
+                           "Si vous avez une vidéo, extrayez d'abord la piste audio.",
+                )
             raise HTTPException(
                 status_code=415,
                 detail=f"Format non supporté : '{ext}'. "
@@ -246,6 +277,15 @@ async def transcribe_file(
         with open(save_path, "wb") as f:
             f.write(content)
         temp_files.append(save_path)
+
+        # ── Débit des crédits (après validation, avant traitement) ───────
+        if not deduct_credits(user["id"], cost, action="transcribe_file"):
+            raise HTTPException(
+                status_code=402,
+                detail=f"Crédits insuffisants. Cette opération nécessite {cost} crédits. "
+                       f"Contactez l'administrateur pour recharger votre compte.",
+            )
+        debited = True
 
         audio_path = save_path
 
@@ -334,6 +374,7 @@ async def transcribe_file(
             for i, seg in enumerate(merged.segments)
         ]
 
+        success = True
         return JSONResponse({
             "success":          True,
             "text":             merged.text,
@@ -344,6 +385,7 @@ async def transcribe_file(
             "diarized":         use_diarization,
             "exports":          exports,
             "chunks_processed": len(merged.segments),
+            "credits_charged":  cost,
         })
 
     except HTTPException:
@@ -365,6 +407,9 @@ async def transcribe_file(
         logger.error(f"Erreur non gérée : {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Erreur interne du serveur")
     finally:
+        # Remboursement si la transcription a échoué après débit
+        if debited and not success:
+            refund_credits(user["id"], cost)
         background_tasks.add_task(remove_files, temp_files)
 
 
@@ -376,9 +421,13 @@ async def transcribe_url(
     url:      str = Form(...),
     language: str = Form(default="auto"),
     diarize:  str = Form(default="false"),
+    user:     dict = Depends(require_user),
 ):
     temp_files = []
     use_diarization = diarize.lower() == "true"
+    cost     = COST_DIARIZE if use_diarization else COST_SIMPLE
+    debited  = False
+    success  = False
 
     try:
         if not url.startswith(("http://", "https://")):
@@ -401,6 +450,15 @@ async def transcribe_url(
             raise HTTPException(status_code=422, detail=str(e))
 
         logger.info(f"Vidéo téléchargée : '{video_title}'")
+
+        # ── Débit des crédits (après validation, avant traitement) ───────
+        if not deduct_credits(user["id"], cost, action="transcribe_url"):
+            raise HTTPException(
+                status_code=402,
+                detail=f"Crédits insuffisants. Cette opération nécessite {cost} crédits. "
+                       f"Contactez l'administrateur pour recharger votre compte.",
+            )
+        debited = True
 
         # ══════════════════════════════════════════════════════════════
         # MODE 1 — DIARISATION (Whisper + PyAnnote)
@@ -461,6 +519,7 @@ async def transcribe_url(
             for i, seg in enumerate(merged.segments)
         ]
 
+        success = True
         return JSONResponse({
             "success":           True,
             "text":              merged.text,
@@ -472,6 +531,7 @@ async def transcribe_url(
             "exports":           exports,
             "chunks_processed":  len(merged.segments),
             "video_title":       video_title,
+            "credits_charged":   cost,
         })
 
     except HTTPException:
@@ -489,6 +549,8 @@ async def transcribe_url(
         logger.error(f"Erreur non gérée (URL) : {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Erreur interne du serveur")
     finally:
+        if debited and not success:
+            refund_credits(user["id"], cost)
         background_tasks.add_task(remove_files, temp_files)
 
 
@@ -502,7 +564,11 @@ class DocxRequest(BaseModel):
 
 
 @app.post("/export/docx")
-async def export_docx(request: DocxRequest, background_tasks: BackgroundTasks):
+async def export_docx(
+    request: DocxRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(require_user),
+):
     segments = []
     for seg in request.segments:
         segments.append(TranscriptionSegment(
