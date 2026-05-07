@@ -106,6 +106,7 @@ if _origins_env.strip():
     _allowed_origins = [o.strip() for o in _origins_env.split(",") if o.strip()]
 else:
     _allowed_origins = [
+        "https://transcription.mapharmadegarde.com",
         "https://apitranscription.mapharmadegarde.com",
         "http://localhost:8000",
         "http://127.0.0.1:8000",

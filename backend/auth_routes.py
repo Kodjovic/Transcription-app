@@ -11,6 +11,13 @@ from pydantic import BaseModel, Field
 # Mettre COOKIE_SECURE=true dans .env quand déployé derrière HTTPS.
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() in ("true", "1", "yes")
 
+# Politique SameSite du cookie.
+# - "lax"    : même origine ou navigation top-level (défaut, dev local)
+# - "none"   : cross-origin autorisé (REQUIS si frontend et API sont sur
+#              des sous-domaines/domaines différents). Nécessite Secure=True.
+# - "strict" : strictement same-site
+COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax").lower()
+
 from auth import (
     SESSION_COOKIE,
     SESSION_DURATION,
@@ -76,7 +83,7 @@ async def login(req: LoginRequest, response: Response):
         value=token,
         max_age=SESSION_DURATION,
         httponly=True,
-        samesite="lax",
+        samesite=COOKIE_SAMESITE,
         secure=COOKIE_SECURE,
     )
     return user_public(user)
