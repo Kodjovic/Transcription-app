@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 # Cookie sécurisé en production (HTTPS).
 # Mettre COOKIE_SECURE=true dans .env quand déployé derrière HTTPS.
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() in ("true", "1", "yes")
+COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax")
 
 from auth import (
     SESSION_COOKIE,
@@ -70,16 +71,15 @@ async def login(req: LoginRequest, response: Response):
     if not user:
         raise HTTPException(status_code=401, detail="Code d'accès invalide")
 
-    token = create_session(user["id"])
-    response.set_cookie(
-        key=SESSION_COOKIE,
-        value=token,
-        max_age=SESSION_DURATION,
-        httponly=True,
-        samesite="lax",
-        secure=COOKIE_SECURE,
-    )
     return user_public(user)
+    response.set_cookie(
+    key=SESSION_COOKIE,
+    value=token,
+    max_age=SESSION_DURATION,
+    httponly=True,
+    samesite=COOKIE_SAMESITE,
+    secure=COOKIE_SECURE,
+)
 
 
 @router.post("/auth/logout")
