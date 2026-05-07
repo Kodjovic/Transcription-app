@@ -7,9 +7,8 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Response, Cookie, Depends
 from pydantic import BaseModel, Field
 
-# Cookie sécurisé en production (HTTPS).
-# Mettre COOKIE_SECURE=true dans .env quand déployé derrière HTTPS.
-COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() in ("true", "1", "yes")
+COOKIE_SECURE   = os.getenv("COOKIE_SECURE", "false").lower() in ("true", "1", "yes")
+COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax")
 
 # Politique SameSite du cookie.
 # - "lax"    : même origine ou navigation top-level (défaut, dev local)
@@ -36,7 +35,6 @@ from auth import (
     delete_user,
     user_public,
 )
-
 
 router = APIRouter()
 
@@ -77,6 +75,7 @@ async def login(req: LoginRequest, response: Response):
     if not user:
         raise HTTPException(status_code=401, detail="Code d'accès invalide")
 
+    # ✅ Créer la session et poser le cookie AVANT de retourner
     token = create_session(user["id"])
     response.set_cookie(
         key=SESSION_COOKIE,
@@ -86,7 +85,7 @@ async def login(req: LoginRequest, response: Response):
         samesite=COOKIE_SAMESITE,
         secure=COOKIE_SECURE,
     )
-    return user_public(user)
+    return user_public(user)  # ✅ return à la fin
 
 
 @router.post("/auth/logout")

@@ -609,14 +609,21 @@ async def export_docx(
     )
 
 
+
 # ─── Gestionnaire d'erreurs global ────────────────────────────────────────────
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Erreur globale : {exc}", exc_info=True)
+    origin = request.headers.get("origin", "")
+    headers = {}
+    if origin:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
     return JSONResponse(
         status_code=500,
         content={"success": False, "error": "Erreur interne du serveur"},
+        headers=headers,
     )
 
 
