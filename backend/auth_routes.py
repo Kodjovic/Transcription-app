@@ -6,12 +6,8 @@ import os
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Response, Cookie, Depends
 from pydantic import BaseModel, Field
-from fastapi import Request
-from fastapi.responses import Response
 
-# Cookie sécurisé en production (HTTPS).
-# Mettre COOKIE_SECURE=true dans .env quand déployé derrière HTTPS.
-COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() in ("true", "1", "yes")
+COOKIE_SECURE   = os.getenv("COOKIE_SECURE", "false").lower() in ("true", "1", "yes")
 COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax")
 
 from auth import (
@@ -32,7 +28,6 @@ from auth import (
     delete_user,
     user_public,
 )
-
 
 router = APIRouter()
 
@@ -63,17 +58,7 @@ async def get_public_config():
         "cost_diarize":    COST_DIARIZE,
         "admin_contact":   ADMIN_CONTACT,
     }
-#--------------------------login--------------------
-@router.options("/auth/login")
-async def options_auth_login():
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-        }
-    )
+
 
 # ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -83,15 +68,17 @@ async def login(req: LoginRequest, response: Response):
     if not user:
         raise HTTPException(status_code=401, detail="Code d'accès invalide")
 
-    return user_public(user)
+    # ✅ Créer la session et poser le cookie AVANT de retourner
+    token = create_session(user["id"])
     response.set_cookie(
-    key=SESSION_COOKIE,
-    value=token,
-    max_age=SESSION_DURATION,
-    httponly=True,
-    samesite=COOKIE_SAMESITE,
-    secure=COOKIE_SECURE,
-)
+        key=SESSION_COOKIE,
+        value=token,
+        max_age=SESSION_DURATION,
+        httponly=True,
+        samesite=COOKIE_SAMESITE,
+        secure=COOKIE_SECURE,
+    )
+    return user_public(user)  # ✅ return à la fin
 
 
 @router.post("/auth/logout")
