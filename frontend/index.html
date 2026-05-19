@@ -3,18 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Transcription Pro</title>
+  <title>Transcription Pro — Convertir Audio en Texte en ligne</title>
+  <meta name="description" content="Convertissez vos fichiers audio en texte rapidement, en toute sécurité. MP3, WAV, M4A, FLAC et plus encore." />
   <link rel="icon" href="favicon.ico" type="image/x-icon" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" />
   <link rel="stylesheet" href="style.css" />
 </head>
-<body>
+<body class="page-home">
 
   <header>
     <div class="header-inner">
-      <div class="logo">
+      <a href="index.html" class="logo">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
           <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
@@ -22,270 +23,250 @@
           <line x1="8" y1="23" x2="16" y2="23"/>
         </svg>
         <span>Transcription Pro</span>
-      </div>
-      <p class="tagline">Convertissez vos fichiers audio &amp; vidéo en texte instantanément</p>
+      </a>
 
-      <!-- Widget utilisateur -->
-      <div id="user-widget" class="user-widget hidden">
-        <div id="credits-badge" class="credits-badge" title="Crédits restants">
+      <nav class="main-nav">
+        <a href="index.html" class="active">Accueil</a>
+        <a href="pricing.html">Tarifs</a>
+        <a href="app.html">Application</a>
+        <a href="app.html" class="nav-login">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M8 12h8M12 8v8"/>
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+            <polyline points="10 17 15 12 10 7"/>
+            <line x1="15" y1="12" x2="3" y2="12"/>
           </svg>
-          <span id="credits-count">—</span>
-        </div>
-        <a id="admin-link" href="admin.html" class="user-btn hidden" title="Administration">⚙️ Admin</a>
-        <button id="logout-btn" class="user-btn" title="Se déconnecter">Déconnexion</button>
-      </div>
+          Connexion
+        </a>
+      </nav>
     </div>
   </header>
 
-  <!-- ═══════════════════════════════════════
-       Overlay de connexion
-  ════════════════════════════════════════ -->
-  <div id="login-overlay" class="login-overlay hidden">
-    <div class="login-card">
-      <div class="login-icon">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-        </svg>
+  <main class="home-main">
+
+    <!-- ═══════════════════════════════════════
+         HERO
+    ════════════════════════════════════════ -->
+    <section class="hero">
+      <div class="hero-content">
+        <span class="hero-badge">Audio → Texte en quelques secondes</span>
+        <h1>Convertissez votre <span class="hero-accent">audio en texte</span> en ligne</h1>
+        <p class="hero-sub">
+          Transcrivez vos fichiers MP3, WAV, M4A, FLAC et bien d'autres formats audio
+          directement depuis votre navigateur, sans installation. Rapide, précis et sécurisé.
+        </p>
+        <div class="hero-cta">
+          <a href="app.html" class="btn-primary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            Commencer maintenant
+          </a>
+          <a href="pricing.html" class="btn-outline">Voir les tarifs</a>
+        </div>
       </div>
-      <h2>Connexion requise</h2>
-      <p class="login-sub">Entrez votre code d'accès personnel pour utiliser l'application.</p>
+      <div class="hero-visual" aria-hidden="true">
+        <div class="hero-shape hero-shape--pink"></div>
+        <div class="hero-shape hero-shape--teal"></div>
+        <div class="hero-shape hero-shape--yellow"></div>
+        <div class="hero-mic">
+          <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+        </div>
+      </div>
+    </section>
 
-      <form id="login-form">
-        <input
-          type="text"
-          id="login-code"
-          placeholder="ABCD-1234"
-          autocomplete="off"
-          spellcheck="false"
-          required
-          autofocus
-        />
-        <button type="submit" id="login-submit">Se connecter</button>
-      </form>
-
-      <p id="login-error" class="login-error hidden"></p>
-
-      <p class="login-help">
-        Pas de code ? <span id="login-contact">Contactez l'administrateur (00228 97 90 47 93) Message whatsapp</span>
+    <!-- ═══════════════════════════════════════
+         POURQUOI CHOISIR
+    ════════════════════════════════════════ -->
+    <section class="features">
+      <h2 class="section-title">Pourquoi choisir notre convertisseur audio en texte&nbsp;?</h2>
+      <p class="section-sub">
+        Une solution simple, rapide et fiable pour tous vos besoins de transcription.
       </p>
-    </div>
-  </div>
 
-  <main>
+      <div class="features-grid">
 
-    <!-- Bannière d'erreur -->
-    <div id="error-banner" class="error-banner hidden" role="alert">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
-        <line x1="12" y1="16" x2="12.01" y2="16"/>
-      </svg>
-      <span id="error-message"></span>
-      <button id="error-dismiss" aria-label="Fermer">&times;</button>
-    </div>
-
-    <!-- ═══════════════════════════════════════
-         SECTION 1 — Upload
-    ════════════════════════════════════════ -->
-    <section id="upload-section">
-
-      <!-- Onglets Fichier / URL -->
-      <div class="input-tabs">
-        <button class="input-tab active" data-input="file">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          Fichier
-        </button>
-        <button class="input-tab" data-input="url" disabled title="Bientôt disponible">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-          URL YouTube
-          <span class="badge-soon">Bientôt</span>
-        </button>
-      </div>
-
-      <!-- Panneau Fichier -->
-      <div id="panel-file">
-      <div id="drop-zone" tabindex="0" role="button" aria-label="Zone de dépôt de fichier">
-        <div class="drop-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="17 8 12 3 7 8"/>
-            <line x1="12" y1="3" x2="12" y2="15"/>
-          </svg>
-        </div>
-        <p class="drop-title">Glissez-déposez votre fichier audio ici</p>
-        <p class="drop-sub">ou</p>
-        <button id="browse-btn" type="button">Parcourir les fichiers</button>
-        <p class="formats">MP3 · WAV · M4A · OGG · FLAC · AAC</p>
-        <p class="max-size">Taille max : 500 Mo (découpage automatique)</p>
-        <input
-          type="file"
-          id="file-input"
-          hidden
-          accept=".mp3,.wav,.m4a,.ogg,.flac,.aac"
-        />
-      </div>
-      </div><!-- fin panel-file -->
-
-      <!-- Panneau URL -->
-      <div id="panel-url" class="hidden">
-        <div class="url-input-card">
-          <div class="url-input-icon">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42 29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.95 1.96C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.96A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z"/>
-              <polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02"/>
+        <article class="feature-card feature-card--pink">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
             </svg>
           </div>
-          <p class="url-input-title">Collez un lien YouTube</p>
-          <p class="url-input-sub">Fonctionne aussi avec Vimeo, Twitter/X, Facebook…</p>
-          <div class="url-field-row">
-            <input
-              type="url"
-              id="url-input"
-              placeholder="https://www.youtube.com/watch?v=..."
-              autocomplete="off"
-              spellcheck="false"
-            />
-            <button id="url-paste-btn" type="button" title="Coller depuis le presse-papiers">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
-            </button>
+          <h3>Sûr</h3>
+          <p>Nous traitons vos fichiers audio via des connexions chiffrées pour garantir
+             la confidentialité et la sécurité de vos données.</p>
+        </article>
+
+        <article class="feature-card feature-card--teal">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
           </div>
-          <p id="url-meta" class="url-meta hidden"></p>
-        </div>
-      </div><!-- fin panel-url -->
+          <h3>Facile à utiliser</h3>
+          <p>Aucune compétence technique requise : il suffit d'envoyer votre fichier,
+             et notre IA s'occupe du reste.</p>
+        </article>
 
-      <div class="options-row">
-
-        <!-- Sélection de la langue -->
-        <div class="option-group">
-          <label for="language-select">Langue</label>
-          <select id="language-select">
-            <option value="auto">Français (défaut)</option>
-            <option value="fr">Français</option>
-            <option value="en">English</option>
-            <option value="es">Español</option>
-            <option value="it">Italiano</option>
-            <option value="de">Deutsch</option>
-            <option value="pt">Português</option>
-            <option value="ja">日本語</option>
-            <option value="zh">中文</option>
-            <option value="ar">العربية</option>
-            <option value="ru">Русский</option>
-            <option value="ko">한국어</option>
-            <option value="nl">Nederlands</option>
-            <option value="pl">Polski</option>
-          </select>
-        </div>
-
-        <!-- Toggle diarisation -->
-        <div class="option-group option-group--toggle">
-          <label>Mode</label>
-          <div class="toggle-row">
-            <label class="toggle-switch" title="Identifier les interlocuteurs (nécessite HF_TOKEN)">
-              <input type="checkbox" id="diarize-toggle" />
-              <span class="toggle-slider"></span>
-            </label>
-            <span class="toggle-label" id="mode-label">Transcription simple</span>
+        <article class="feature-card feature-card--yellow">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
           </div>
-          <p class="toggle-hint" id="diarize-hint">
-            Activez pour identifier les interlocuteurs &amp; horodater chaque prise de parole
-          </p>
-        </div>
+          <h3>Rapide</h3>
+          <p>Vos fichiers audio sont transcrits en quelques secondes, vous obtenez
+             votre texte sans attendre.</p>
+        </article>
 
-        <!-- Bouton Transcrire -->
-        <button id="transcribe-btn" type="button" disabled>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polygon points="5 3 19 12 5 21 5 3"/>
-          </svg>
-          Transcrire
-        </button>
+        <article class="feature-card feature-card--pink">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+          </div>
+          <h3>Nombreux formats</h3>
+          <p>Vous pouvez transcrire les fichiers MP3, WAV, M4A, FLAC, OGG, AAC et
+             bien d'autres formats audio, sans conversion préalable.</p>
+        </article>
+
+        <article class="feature-card feature-card--teal">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="2" y1="12" x2="22" y2="12"/>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+          </div>
+          <h3>100% en ligne</h3>
+          <p>Notre outil de transcription fonctionne entièrement dans votre navigateur :
+             rien à télécharger ni à installer.</p>
+        </article>
+
+        <article class="feature-card feature-card--yellow">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+          </div>
+          <h3>Toujours accessible</h3>
+          <p>Vos transcriptions sont sauvegardées dans votre compte. Téléchargez-les
+             ou consultez-les à tout moment.</p>
+        </article>
 
       </div>
     </section>
 
     <!-- ═══════════════════════════════════════
-         SECTION 2 — Progression
+         FAQ
     ════════════════════════════════════════ -->
-    <section id="progress-section" class="hidden">
-      <div class="progress-card">
-        <div class="progress-icon">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="spin">
-            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-          </svg>
-        </div>
-        <p id="progress-label">Chargement du fichier...</p>
-        <div id="progress-bar-container">
-          <div id="progress-bar"></div>
-        </div>
-        <p id="progress-pct">0%</p>
-        <p id="progress-detail" class="progress-detail hidden"></p>
+    <section class="faq">
+      <h2 class="section-title">FAQ — Questions fréquentes</h2>
+      <p class="section-sub">Tout ce que vous devez savoir sur Transcription Pro.</p>
+
+      <div class="faq-list">
+
+        <details class="faq-item">
+          <summary>
+            <span>Qu'est-ce que Transcription Pro&nbsp;?</span>
+            <span class="faq-icon" aria-hidden="true"></span>
+          </summary>
+          <div class="faq-content">
+            <p>Transcription Pro est un service en ligne qui convertit automatiquement vos
+               fichiers audio en texte grâce à l'intelligence artificielle. Il prend en charge
+               de nombreux formats (MP3, WAV, M4A, FLAC, OGG…) et plusieurs langues, dont le
+               français, l'anglais, l'espagnol et bien d'autres.</p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary>
+            <span>Comment transcrire un fichier audio en texte&nbsp;?</span>
+            <span class="faq-icon" aria-hidden="true"></span>
+          </summary>
+          <div class="faq-content">
+            <p>C'est très simple : connectez-vous, glissez-déposez votre fichier audio
+               (ou cliquez sur «&nbsp;Parcourir&nbsp;»), choisissez la langue, puis lancez
+               la transcription. Vous obtenez le résultat en quelques secondes, prêt à être
+               copié ou exporté au format TXT, SRT ou Word.</p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary>
+            <span>Comment transcrire un fichier audio en ligne&nbsp;?</span>
+            <span class="faq-icon" aria-hidden="true"></span>
+          </summary>
+          <div class="faq-content">
+            <p>Tout se passe directement dans votre navigateur, sans téléchargement
+               d'application. Il vous suffit d'aller sur la page «&nbsp;Application&nbsp;»,
+               de vous identifier avec votre code d'accès, puis d'envoyer votre fichier.
+               Le traitement est effectué côté serveur, vous récupérez ensuite la transcription.</p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary>
+            <span>Comment transcrire un audio sur iPhone&nbsp;?</span>
+            <span class="faq-icon" aria-hidden="true"></span>
+          </summary>
+          <div class="faq-content">
+            <p>Notre service est entièrement compatible avec les iPhone et iPad. Ouvrez
+               simplement le site dans Safari, connectez-vous puis envoyez l'enregistrement
+               vocal ou n'importe quel fichier audio depuis votre appareil. Aucune application
+               à installer.</p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary>
+            <span>Quelle est la précision de la transcription&nbsp;?</span>
+            <span class="faq-icon" aria-hidden="true"></span>
+          </summary>
+          <div class="faq-content">
+            <p>Nous utilisons des modèles d'IA de pointe (Cohere et Whisper) qui offrent
+               une excellente précision, en particulier pour les audios clairs. Pour les
+               enregistrements à plusieurs interlocuteurs, vous pouvez activer le mode
+               «&nbsp;diarisation&nbsp;» pour identifier qui parle et quand.</p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary>
+            <span>À quoi sert la transcription audio&nbsp;?</span>
+            <span class="faq-icon" aria-hidden="true"></span>
+          </summary>
+          <div class="faq-content">
+            <p>La transcription audio est utile pour de nombreux usages : transcrire des
+               entretiens, des cours, des podcasts, transformer des enregistrements de
+               réunions en comptes-rendus écrits, ou tout simplement obtenir une version
+               texte de n'importe quel contenu parlé. Dès que vous avez besoin de l'écrit
+               à partir de la voix, un convertisseur audio-vers-texte vous fait gagner un
+               temps précieux.</p>
+          </div>
+        </details>
+
       </div>
     </section>
 
     <!-- ═══════════════════════════════════════
-         SECTION 3 — Résultats
+         CTA Final
     ════════════════════════════════════════ -->
-    <section id="results-section" class="hidden">
-
-      <div class="results-header">
-        <h2>Transcription terminée</h2>
-        <div id="result-meta" class="meta-chips">
-          <span id="meta-language" class="chip"></span>
-          <span id="meta-duration" class="chip"></span>
-          <span id="meta-chunks"   class="chip hidden"></span>
-          <span id="meta-speakers" class="chip chip--speakers hidden"></span>
-        </div>
+    <section class="cta-final">
+      <h2>Prêt à transcrire votre premier fichier&nbsp;?</h2>
+      <p>Démarrez en quelques secondes — choisissez l'offre qui vous convient.</p>
+      <div class="hero-cta">
+        <a href="pricing.html" class="btn-primary">Voir nos offres</a>
+        <a href="app.html" class="btn-outline">Aller à l'application</a>
       </div>
-
-      <!-- Onglets vue texte / vue interlocuteurs -->
-      <div id="view-tabs" class="view-tabs hidden">
-        <button class="tab-btn active" data-tab="text">📄 Texte brut</button>
-        <button class="tab-btn"        data-tab="speakers">🎙️ Par interlocuteur</button>
-      </div>
-
-      <!-- Vue texte brut -->
-      <div id="tab-text" class="tab-panel">
-        <div class="textarea-wrapper">
-          <textarea id="transcript-output" readonly placeholder="La transcription apparaîtra ici..."></textarea>
-          <button id="copy-btn" class="copy-btn" title="Copier le texte">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- Vue interlocuteurs (diarisation) -->
-      <div id="tab-speakers" class="tab-panel hidden">
-        <div id="speakers-view"></div>
-      </div>
-
-      <!-- Boutons d'export -->
-      <div class="export-section">
-        <p class="export-label">Exporter en :</p>
-        <div id="export-buttons">
-          <button id="export-txt" class="btn-export">
-            <span class="export-icon">TXT</span>
-            Texte brut (.txt)
-          </button>
-          <button id="export-srt" class="btn-export">
-            <span class="export-icon">SRT</span>
-            Sous-titres (.srt)
-          </button>
-          <button id="export-docx" class="btn-export">
-            <span class="export-icon">DOC</span>
-            Word (.docx)
-          </button>
-        </div>
-      </div>
-
-      <button id="new-transcription-btn" type="button" class="btn-secondary">
-        ← Nouvelle transcription
-      </button>
-
     </section>
 
   </main>
@@ -294,6 +275,6 @@
     <p>Propulsé par <strong>Kodjo Freelance</strong> &mdash; Fichiers supprimés après traitement.</p>
   </footer>
 
-  <script src="app.js"></script>
+  <script src="home.js"></script>
 </body>
 </html>

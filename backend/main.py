@@ -42,6 +42,7 @@ from auth import (
     COST_DIARIZE,
 )
 from auth_routes import router as auth_router
+from payment_routes import router as payment_router
 
 from fastapi import Depends
 
@@ -123,6 +124,9 @@ app.add_middleware(
 # Routes d'authentification + admin
 app.include_router(auth_router)
 
+# Routes de paiement Chariow + webhook
+app.include_router(payment_router)
+
 # Servir le frontend comme fichiers statiques
 frontend_dir = os.path.join(os.path.dirname(__file__), "..", "frontend")
 if os.path.isdir(frontend_dir):
@@ -139,6 +143,38 @@ def remove_files(paths: list):
                 os.remove(p)
         except Exception:
             pass
+
+
+def prepare_audio_for_diarization(audio_path: str, temp_files: list) -> str:
+    """
+    Prépare l'audio pour PyAnnote : WAV 16kHz mono.
+    Évite la conversion si le fichier est déjà compatible.
+    """
+    import librosa
+
+    try:
+        # Vérifier si le fichier est déjà WAV 16kHz mono
+        info = librosa.get_samplerate(audio_path)
+        if audio_path.lower().endswith('.wav'):
+            # Charger les métadonnées sans tout le fichier
+            import soundfile as sf
+            try:
+                with sf.SoundFile(audio_path, 'r') as f:
+                    if f.samplerate == 16000 and f.channels == 1:
+                        logger.info("Audio déjà au format WAV 16kHz mono, pas de conversion nécessaire.")
+                        return audio_path
+            except Exception:
+                pass  # Continuer avec la conversion
+
+    except Exception as e:
+        logger.warning(f"Impossible de vérifier le format audio : {e}")
+
+    # Conversion nécessaire
+    logger.info("Conversion de l'audio en WAV 16kHz mono pour la diarisation...")
+    converted_path = os.path.join(TEMP_DIR, f"{uuid.uuid4()}_diarization.wav")
+    converted = audio_processor.convert_to_wav(audio_path, converted_path)
+    temp_files.append(converted)
+    return converted
 
 
 def find_dominant_speaker(
@@ -332,11 +368,45 @@ async def transcribe_file(
 
             logger.info(f"Mode diarisation activé pour : {filename}")
 
-            # Diarisation (PyAnnote) — qui parle quand ?
-            diar_segments = diarization_service.diarize(audio_path)
+            # Préparer un fichier WAV 16kHz mono dédié à la diarisation
+            try:
+                diarization_audio_path = prepare_audio_for_diarization(audio_path, temp_files)
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Impossible de convertir l'audio pour la diarisation : {e}",
+                )
 
-            # Transcription (Whisper Timestamped) — que dit-on et quand ?
-            whisper_segments = whisper_service.transcribe(audio_path, language)
+            # Pour les fichiers courts (< 5 min), traiter en parallèle pour gagner du temps
+            if audio_duration > 0 and audio_duration < 300:  # 5 minutes
+                logger.info("Traitement parallèle activé pour fichier court")
+                import asyncio
+
+                async def diarize_async():
+                    return diarization_service.diarize(diarization_audio_path)
+
+                async def transcribe_async():
+                    return whisper_service.transcribe(diarization_audio_path, language)
+
+                # Lancer les deux tâches en parallèle
+                diar_task = asyncio.create_task(diarize_async())
+                transcribe_task = asyncio.create_task(transcribe_async())
+
+                try:
+                    diar_segments, whisper_segments = await asyncio.gather(diar_task, transcribe_task)
+                except Exception as e:
+                    # En cas d'erreur, annuler les tâches
+                    diar_task.cancel()
+                    transcribe_task.cancel()
+                    raise e
+            else:
+                # Traitement séquentiel pour les fichiers longs
+                logger.info("Traitement séquentiel pour fichier long")
+                # Diarisation (PyAnnote) — qui parle quand ?
+                diar_segments = diarization_service.diarize(diarization_audio_path)
+
+                # Transcription (Whisper Timestamped) — que dit-on et quand ?
+                whisper_segments = whisper_service.transcribe(diarization_audio_path, language)
 
             # Fusion : locuteur + horodatage + texte
             merged = build_diarized_result(
@@ -488,8 +558,42 @@ async def transcribe_url(
             except Exception:
                 audio_duration = video_duration
 
-            diar_segments    = diarization_service.diarize(audio_path)
-            whisper_segments = whisper_service.transcribe(audio_path, language)
+            try:
+                diarization_audio_path = prepare_audio_for_diarization(audio_path, temp_files)
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Impossible de convertir l'audio pour la diarisation : {e}",
+                )
+
+            # Pour les fichiers courts (< 5 min), traiter en parallèle pour gagner du temps
+            if audio_duration > 0 and audio_duration < 300:  # 5 minutes
+                logger.info("Traitement parallèle activé pour fichier court")
+                import asyncio
+
+                async def diarize_async():
+                    return diarization_service.diarize(diarization_audio_path)
+
+                async def transcribe_async():
+                    return whisper_service.transcribe(diarization_audio_path, language)
+
+                # Lancer les deux tâches en parallèle
+                diar_task = asyncio.create_task(diarize_async())
+                transcribe_task = asyncio.create_task(transcribe_async())
+
+                try:
+                    diar_segments, whisper_segments = await asyncio.gather(diar_task, transcribe_task)
+                except Exception as e:
+                    # En cas d'erreur, annuler les tâches
+                    diar_task.cancel()
+                    transcribe_task.cancel()
+                    raise e
+            else:
+                # Traitement séquentiel pour les fichiers longs
+                logger.info("Traitement séquentiel pour fichier long")
+                diar_segments    = diarization_service.diarize(diarization_audio_path)
+                whisper_segments = whisper_service.transcribe(diarization_audio_path, language)
+
             merged = build_diarized_result(
                 whisper_segments=whisper_segments,
                 diar_segments=diar_segments,

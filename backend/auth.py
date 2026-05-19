@@ -73,6 +73,25 @@ def init_db() -> None:
                 detail        TEXT,
                 created_at    INTEGER NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS purchases (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                purchase_ref     TEXT UNIQUE NOT NULL,   -- réf interne envoyée à Chariow
+                chariow_sale_id  TEXT,                   -- sal_xxx renvoyé par Chariow
+                plan             TEXT NOT NULL,          -- "standard" | "premium"
+                amount           INTEGER,                -- montant en XOF
+                customer_email   TEXT NOT NULL,
+                customer_name    TEXT,
+                customer_phone   TEXT,
+                status           TEXT NOT NULL,          -- pending | paid | failed | abandoned
+                user_id          INTEGER,                -- user créé après paiement
+                user_code        TEXT,                   -- code utilisateur généré
+                credits_granted  INTEGER,
+                created_at       INTEGER NOT NULL,
+                fulfilled_at     INTEGER,
+                webhook_payload  TEXT,                   -- dernier payload reçu (debug)
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            );
         """)
         conn.commit()
 
@@ -254,6 +273,123 @@ def delete_session(token: str) -> None:
 def cleanup_expired_sessions() -> None:
     with _get_conn() as conn:
         conn.execute("DELETE FROM sessions WHERE expires_at <= ?", (int(time.time()),))
+        conn.commit()
+
+
+# ─── Achats (Chariow) ─────────────────────────────────────────────────────────
+
+def create_purchase(
+    purchase_ref: str,
+    plan: str,
+    customer_email: str,
+    customer_name: Optional[str] = None,
+    customer_phone: Optional[str] = None,
+    amount: Optional[int] = None,
+) -> dict:
+    """Crée une ligne purchase au statut 'pending' avant la redirection Chariow."""
+    with _get_conn() as conn:
+        cur = conn.execute(
+            """
+            INSERT INTO purchases
+                (purchase_ref, plan, amount, customer_email, customer_name,
+                 customer_phone, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
+            """,
+            (purchase_ref, plan, amount, customer_email, customer_name,
+             customer_phone, int(time.time())),
+        )
+        conn.commit()
+        purchase_id = cur.lastrowid
+    return get_purchase_by_id(purchase_id)
+
+
+def get_purchase_by_id(purchase_id: int) -> Optional[dict]:
+    with _get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM purchases WHERE id = ?", (purchase_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def get_purchase_by_ref(purchase_ref: str) -> Optional[dict]:
+    with _get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM purchases WHERE purchase_ref = ?", (purchase_ref,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def update_purchase_sale_id(purchase_ref: str, chariow_sale_id: str) -> None:
+    with _get_conn() as conn:
+        conn.execute(
+            "UPDATE purchases SET chariow_sale_id = ? WHERE purchase_ref = ?",
+            (chariow_sale_id, purchase_ref),
+        )
+        conn.commit()
+
+
+def fulfill_purchase(
+    purchase_ref: str,
+    credits: int,
+    webhook_payload: Optional[str] = None,
+) -> Optional[dict]:
+    """
+    Crée le code utilisateur correspondant à un paiement réussi, lie le user
+    au purchase, et marque le purchase comme 'paid'.
+
+    Idempotent : si le purchase est déjà 'paid', renvoie le user existant.
+    Retourne le user créé (ou existant) avec sa clé d'accès.
+    """
+    purchase = get_purchase_by_ref(purchase_ref)
+    if not purchase:
+        return None
+
+    # Idempotence : déjà traité
+    if purchase["status"] == "paid" and purchase["user_id"]:
+        return get_user_by_id(purchase["user_id"])
+
+    # Création du code utilisateur
+    user = create_user(
+        name=purchase["customer_name"] or purchase["customer_email"],
+        credits=credits,
+        is_admin=False,
+    )
+
+    with _get_conn() as conn:
+        conn.execute(
+            """
+            UPDATE purchases
+            SET status = 'paid',
+                user_id = ?,
+                user_code = ?,
+                credits_granted = ?,
+                fulfilled_at = ?,
+                webhook_payload = ?
+            WHERE purchase_ref = ?
+            """,
+            (user["id"], user["code"], credits, int(time.time()),
+             webhook_payload, purchase_ref),
+        )
+        conn.execute(
+            "INSERT INTO usage_log (user_id, action, credits_delta, detail, created_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (user["id"], "purchase_fulfilled", credits,
+             f"plan={purchase['plan']} ref={purchase_ref}", int(time.time())),
+        )
+        conn.commit()
+    return user
+
+
+def mark_purchase_status(
+    purchase_ref: str, status: str, webhook_payload: Optional[str] = None,
+) -> None:
+    """Marque un purchase 'failed' ou 'abandoned' (idempotent)."""
+    with _get_conn() as conn:
+        conn.execute(
+            "UPDATE purchases SET status = ?, webhook_payload = ? "
+            "WHERE purchase_ref = ? AND status NOT IN ('paid')",
+            (status, webhook_payload, purchase_ref),
+        )
         conn.commit()
 
 

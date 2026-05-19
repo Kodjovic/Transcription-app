@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Paiement réussi — Transcription Pro</title>
+  <link rel="icon" href="favicon.ico" type="image/x-icon" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="page-success">
+
+  <header>
+    <div class="header-inner">
+      <a href="index.html" class="logo">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+        <span>Transcription Pro</span>
+      </a>
+
+      <nav class="main-nav">
+        <a href="index.html">Accueil</a>
+        <a href="pricing.html">Tarifs</a>
+        <a href="app.html">Application</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="success-main">
+
+    <!-- ─── État : en attente du webhook ──────────────────── -->
+    <section id="state-pending" class="success-card success-card--pending">
+      <div class="success-spinner">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin">
+          <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+        </svg>
+      </div>
+      <h1>Paiement en cours de validation…</h1>
+      <p>
+        Merci&nbsp;! Nous attendons la confirmation de votre paiement.
+        Cette étape ne prend généralement que quelques secondes.
+      </p>
+      <p class="success-sub">Ne fermez pas cette page.</p>
+    </section>
+
+    <!-- ─── État : paiement réussi, code prêt ────────────── -->
+    <section id="state-paid" class="success-card success-card--paid hidden">
+      <div class="success-icon success-icon--check">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      <h1>Paiement confirmé&nbsp;!</h1>
+      <p class="success-text">
+        Voici votre <strong>code d'accès personnel</strong>. Conservez-le précieusement,
+        il vous permet de vous connecter à l'application.
+      </p>
+
+      <div class="code-box">
+        <span id="user-code" class="user-code">—</span>
+        <button type="button" id="copy-code-btn" class="copy-code-btn" title="Copier le code">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+          <span id="copy-code-label">Copier</span>
+        </button>
+      </div>
+
+      <p class="credits-line">
+        <strong id="credits-granted">—</strong> crédits ajoutés à votre compte.
+      </p>
+
+      <div class="success-actions">
+        <a href="app.html" class="btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          Accéder à l'application
+        </a>
+        <a href="index.html" class="btn-outline">Retour à l'accueil</a>
+      </div>
+
+      <p class="success-help">
+        Une copie de votre code a également été enregistrée pour votre adresse
+        <strong id="customer-email-display"></strong>.
+      </p>
+    </section>
+
+    <!-- ─── État : paiement échoué ────────────────────────── -->
+    <section id="state-failed" class="success-card success-card--failed hidden">
+      <div class="success-icon success-icon--error">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </div>
+      <h1>Paiement non finalisé</h1>
+      <p>
+        Votre paiement n'a pas pu être confirmé. Aucun montant n'a été débité
+        si vous n'avez pas finalisé la transaction.
+      </p>
+      <div class="success-actions">
+        <a href="pricing.html" class="btn-primary">Réessayer</a>
+        <a href="https://wa.me/22897904793" target="_blank" rel="noopener" class="btn-outline">
+          Contacter le support
+        </a>
+      </div>
+    </section>
+
+    <!-- ─── État : temps d'attente dépassé ─────────────── -->
+    <section id="state-timeout" class="success-card success-card--timeout hidden">
+      <div class="success-icon success-icon--warn">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
+      </div>
+      <h1>Validation en cours…</h1>
+      <p>
+        Le paiement prend plus de temps que prévu. Pas d'inquiétude&nbsp;:
+        nous recevons toujours la confirmation directement de Chariow.
+        Votre code vous sera envoyé par email dès validation.
+      </p>
+      <p class="success-sub">
+        Référence&nbsp;: <code id="ref-display">—</code>
+      </p>
+      <div class="success-actions">
+        <a href="https://wa.me/22897904793" target="_blank" rel="noopener" class="btn-primary">
+          Contacter le support
+        </a>
+        <a href="index.html" class="btn-outline">Retour à l'accueil</a>
+      </div>
+    </section>
+
+    <!-- ─── État : référence inconnue ────────────────────── -->
+    <section id="state-not-found" class="success-card success-card--failed hidden">
+      <div class="success-icon success-icon--error">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </div>
+      <h1>Référence introuvable</h1>
+      <p>Nous n'avons pas trouvé d'achat correspondant à cette référence.</p>
+      <div class="success-actions">
+        <a href="pricing.html" class="btn-primary">Voir les offres</a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>Propulsé par <strong>Kodjo Freelance</strong> &mdash; Fichiers supprimés après traitement.</p>
+  </footer>
+
+  <script src="success.js"></script>
+</body>
+</html>

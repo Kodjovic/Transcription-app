@@ -1,6 +1,6 @@
 'use strict';
 
-const API_BASE = 'https://apitranscription.mapharmadegarde.com';
+const API_BASE = window.location.origin;
 
 let createForm, newName, newCredits, newCodeResult, newCodeValue, copyCodeBtn;
 let usersTbody, refreshBtn, logoutBtn, errorBanner, errorMessage, errorDismiss;
@@ -21,10 +21,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Vérifier que l'utilisateur est admin
   const me = await fetchMe();
-  if (!me) { window.location.href = 'index.html'; return; }
+  if (!me) { window.location.href = 'app.html'; return; }
   if (!me.is_admin) {
     showError('Accès réservé à l\'administrateur.');
-    setTimeout(() => { window.location.href = 'index.html'; }, 2000);
+    setTimeout(() => { window.location.href = 'app.html'; }, 2000);
     return;
   }
 
@@ -195,7 +195,7 @@ async function promptDeleteUser(user) {
 
 async function handleLogout() {
   try { await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' }); } catch (_) {}
-  window.location.href = 'index.html';
+  window.location.href = 'index.html';  // redirige vers la home publique
 }
 
 
